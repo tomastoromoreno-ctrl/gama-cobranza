@@ -1,0 +1,36 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // Logout
+    document.getElementById('logout-btn')?.addEventListener('click', () => {
+        window.location.href = '/';
+    });
+
+    // Cargar facturas
+    fetch('/api/cobranza')
+        .then(res => res.json())
+        .then(data => {
+            const tableBody = document.getElementById('table-body');
+            data.forEach(factura => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${factura.numeroFactura}</td>
+                    <td>${factura.razonSocial}</td>
+                    <td>${formatDate(factura.fechaFactura)}</td>
+                    <td>${formatDate(factura.fechaVencimiento)}</td>
+                    <td>${formatNumber(factura.monto)}</td>
+                    <td class="status-${factura.estado.toLowerCase()}">${factura.estado}</td>
+                    <td>${formatDate(factura.proximaLlamada)}</td>
+                    <td>${factura.prioridad}</td>
+                    <td>${factura.notas}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        });
+
+    function formatDate(date) {
+        return date ? date.toISOString().split('T')[0] : '';
+    }
+
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+});

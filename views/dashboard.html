@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gama Seguridad - Gestión de Cobranza</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="/images/logo.png" alt="Logo Gama Seguridad" class="logo">
+            <h1>Gestión de Cobranza - Gama Seguridad</h1>
+            <button class="btn" id="logout-btn">Cerrar Sesión</button>
+        </header>
+
+        <div class="upload-area" id="drop-area">
+            <h3>📁 Arrastra tu archivo Excel (.xlsx) aquí o haz clic</h3>
+            <p>Formato: 8 columnas → N° Factura, Razón Social, Monto, Fecha Factura, Fecha Vencimiento, Estado, Fecha Pago (opcional), Notas (opcional)</p>
+        </div>
+        <input type="file" id="file-input" accept=".xlsx" style="display: none;">
+
+        <!-- Filtros -->
+        <div class="filters">
+            <div class="filter-group">
+                <label for="estado-filter">Filtrar por Estado:</label>
+                <select id="estado-filter" class="filter-select">
+                    <option value="">Todos</option>
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="Pagado">Pagado</option>
+                    <option value="Vencido">Vencido</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="cliente-search">Buscar Cliente:</label>
+                <input type="text" id="cliente-search" class="filter-input" placeholder="Escribe nombre del cliente...">
+            </div>
+            <div class="filter-actions">
+                <button class="btn" id="export-pdf">📄 Exportar a PDF</button>
+                <button class="btn" id="download-btn">⬇️ Descargar Excel</button>
+            </div>
+        </div>
+
+        <div class="summary-cards">
+            <div class="card pagado">
+                <h3>TOTAL PAGADO</h3>
+                <div class="value" id="total-pagado">0</div>
+            </div>
+            <div class="card pendiente">
+                <h3>TOTAL PENDIENTE</h3>
+                <div class="value" id="total-pendiente">0</div>
+            </div>
+            <div class="card vencido">
+                <h3>TOTAL VENCIDO</h3>
+                <div class="value" id="total-vencido">0</div>
+            </div>
+            <div class="card">
+                <h3>% MOROSIDAD</h3>
+                <div class="value" id="morosidad">0%</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>N° Factura</th>
+                        <th>Razón Social</th>
+                        <th>Fecha Factura</th>
+                        <th>Fecha Vencimiento</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Próxima Llamada</th>
+                        <th>Fecha Pago</th>
+                        <th>Notas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Datos se llenarán aquí -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
