@@ -26,29 +26,28 @@ function parseDate(dateStr) {
             return isNaN(date.getTime()) ? null : date;
         }
 
-        // Si es string en formato MM/DD/YY
+        // Si es string en formato DD/MM/YY o DD-MM-YY
         if (typeof dateStr === 'string') {
             // Limpiar caracteres no numéricos excepto / y -
-            dateStr = dateStr.replace(/[^\d\/\-]/g, '');
+            let cleanStr = dateStr.replace(/[^\d\/\-]/g, '');
             
-            // Formato DD/MM/YY o DD-MM-YY
-            if (dateStr.includes('/') || dateStr.includes('-')) {
-                const parts = dateStr.split(/[/\-]/);
-                if (parts.length === 3) {
+            if (cleanStr.includes('/') || cleanStr.includes('-')) {
+                const parts = cleanStr.split(/[/\-]/);
+                if (parts.length >= 2) {
                     let day, month, year;
                     
-                    // Detectar formato DD/MM/YY
+                    // Formato DD/MM/YY
                     if (parts[0].length <= 2 && parts[1].length <= 2) {
                         day = parseInt(parts[0], 10);
-                        month = parseInt(parts[1], 10) - 1; // Mes en JS es 0-11
-                        year = parseInt(parts[2], 10);
+                        month = parseInt(parts[1], 10) - 1;
+                        year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
                         if (year < 100) year += 2000;
                     } 
-                    // Detectar formato MM/DD/YY
-                    else if (parts[1].length <= 2 && parts[0].length <= 2) {
+                    // Formato MM/DD/YY
+                    else {
                         month = parseInt(parts[0], 10) - 1;
                         day = parseInt(parts[1], 10);
-                        year = parseInt(parts[2], 10);
+                        year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
                         if (year < 100) year += 2000;
                     }
 
@@ -77,16 +76,24 @@ function parseDate(dateStr) {
 function extractAmount(amountStr) {
     if (!amountStr) return 0;
     
-    // Eliminar caracteres no numéricos excepto puntos y comas
-    let cleanStr = amountStr.toString().replace(/[^\d\.,]/g, '');
+    // Convertir a string si no lo es
+    let str = amountStr.toString();
     
-    // Reemplazar comas por puntos si es necesario
-    if (cleanStr.includes(',')) {
-        cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+    // Eliminar caracteres no numéricos excepto comas y puntos
+    str = str.replace(/[^\d\.,]/g, '');
+    
+    // Si tiene comas y puntos, asumir formato chileno (puntos como separadores de miles, comas como decimales)
+    if (str.includes(',') && str.includes('.')) {
+        // Eliminar puntos (separadores de miles) y reemplazar coma por punto
+        str = str.replace(/\./g, '').replace(',', '.');
+    } 
+    // Si solo tiene comas, reemplazar por puntos
+    else if (str.includes(',')) {
+        str = str.replace(',', '.');
     }
     
     // Convertir a número y redondear
-    const amount = Math.round(parseFloat(cleanStr) || 0);
+    const amount = Math.round(parseFloat(str) || 0);
     return amount;
 }
 
@@ -109,9 +116,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i];
             if (!row || row.length === 0) continue; // Saltar filas vacías
+            
+            // Saltar filas que parecen encabezados o títulos
+            if (typeof row[0] === 'string' && row[0].includes('SEPT')) continue;
+            if (row[0] === 'Fecha') continue;
 
-            // Extraer datos según el formato del archivo
-            // Columna 0: Fecha Factura
+            // Extraer datos según el formato del archivo Cobranza Sept25.xlsx
+            // Columna 0: Fecha
             // Columna 1: Número de Factura
             // Columna 2: Razón Social
             // Columna 3: Monto
@@ -121,7 +132,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             const montoRaw = row[3];
 
             // Validar campos obligatorios
-            if (!numeroFactura || !razonSocial) {
+            if (!numeroFactura || !razonSocial || !montoRaw) {
                 console.warn(`Fila ${i+1}: Datos incompletos, saltando...`);
                 continue;
             }
@@ -247,65 +258,6 @@ router.get('/', async (req, res) => {
         res.json(facturas);
     } catch (err) {
         console.error('Error al obtener facturas:', err);
-        res.status(500).json({ error: 'Error interno del servidor' });
-    }
-});
-
-// Actualizar factura (soft update)
-router.put('/:id', async (req, res) => {
-    try {
-        const { estado, prioridad, proximaLlamada, fechaPago, notas } = req.body;
-
-        // Validar que al menos uno de los campos esté presente
-        if (!estado && !prioridad && !proximaLlamada && !fechaPago && !notas) {
-            return res.status(400).json({ error: 'Debe proporcionar al menos un campo para actualizar' });
-        }
-
-        // Validar valores
-        if (estado && !['Pendiente', 'Pagado', 'Vencido'].includes(estado)) {
-            return res.status(400).json({ error: 'Estado inválido. Valores permitidos: Pendiente, Pagado, Vencido' });
-        }
-
-        if (prioridad && !['Alta', 'Media', 'Baja'].includes(prioridad)) {
-            return res.status(400).json({ error: 'Prioridad inválida. Valores permitidos: Alta, Media, Baja' });
-        }
-
-        // Validar fechas
-        if (proximaLlamada) {
-            const date = new Date(proximaLlamada);
-            if (isNaN(date.getTime())) {
-                return res.status(400).json({ error: 'Fecha de próxima llamada inválida' });
-            }
-        }
-
-        if (fechaPago) {
-            const date = new Date(fechaPago);
-            if (isNaN(date.getTime())) {
-                return res.status(400).json({ error: 'Fecha de pago inválida' });
-            }
-        }
-
-        // Actualizar factura
-        const factura = await Factura.findByIdAndUpdate(
-            req.params.id,
-            {
-                estado,
-                prioridad,
-                proximaLlamada: proximaLlamada ? new Date(proximaLlamada) : null,
-                fechaPago: fechaPago ? new Date(fechaPago) : null,
-                notas,
-                updatedAt: new Date()
-            },
-            { new: true }
-        );
-
-        if (!factura) {
-            return res.status(404).json({ error: 'Factura no encontrada' });
-        }
-
-        res.json(factura);
-    } catch (err) {
-        console.error('Error al actualizar factura:', err);
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
