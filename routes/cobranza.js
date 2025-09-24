@@ -262,6 +262,65 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Actualizar factura (soft update)
+router.put('/:id', async (req, res) => {
+    try {
+        const { estado, prioridad, proximaLlamada, fechaPago, notas } = req.body;
+
+        // Validar que al menos uno de los campos esté presente
+        if (!estado && !prioridad && !proximaLlamada && !fechaPago && !notas) {
+            return res.status(400).json({ error: 'Debe proporcionar al menos un campo para actualizar' });
+        }
+
+        // Validar valores
+        if (estado && !['Pendiente', 'Pagado', 'Vencido'].includes(estado)) {
+            return res.status(400).json({ error: 'Estado inválido. Valores permitidos: Pendiente, Pagado, Vencido' });
+        }
+
+        if (prioridad && !['Alta', 'Media', 'Baja'].includes(prioridad)) {
+            return res.status(400).json({ error: 'Prioridad inválida. Valores permitidos: Alta, Media, Baja' });
+        }
+
+        // Validar fechas
+        if (proximaLlamada) {
+            const date = new Date(proximaLlamada);
+            if (isNaN(date.getTime())) {
+                return res.status(400).json({ error: 'Fecha de próxima llamada inválida' });
+            }
+        }
+
+        if (fechaPago) {
+            const date = new Date(fechaPago);
+            if (isNaN(date.getTime())) {
+                return res.status(400).json({ error: 'Fecha de pago inválida' });
+            }
+        }
+
+        // Actualizar factura
+        const factura = await Factura.findByIdAndUpdate(
+            req.params.id,
+            {
+                estado,
+                prioridad,
+                proximaLlamada: proximaLlamada ? new Date(proximaLlamada) : null,
+                fechaPago: fechaPago ? new Date(fechaPago) : null,
+                notas,
+                updatedAt: new Date()
+            },
+            { new: true }
+        );
+
+        if (!factura) {
+            return res.status(404).json({ error: 'Factura no encontrada' });
+        }
+
+        res.json(factura);
+    } catch (err) {
+        console.error('Error al actualizar factura:', err);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 // Eliminar factura (soft delete)
 router.delete('/:id', async (req, res) => {
     try {
