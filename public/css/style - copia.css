@@ -5,7 +5,7 @@ header { display: flex; justify-content: space-between; align-items: center; pad
 .logo { height: 50px; }
 
 /* Login */
-.login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; color: #1e293b; margin: 50px auto; }
+.login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; color: #1e293b; }
 .login-box input { width: 100%; padding: 14px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
 .btn { background: #1a365d; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; width: 100%; margin-top: 10px; }
 .btn:hover { background: #2d4a7c; }
@@ -111,29 +111,12 @@ tr:hover { background: #f8fafc; }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .container { padding: 10px; }
-    header { flex-direction: column; gap: 15px; text-align: center; }
-    .logo { height: 40px; }
     .summary-cards { grid-template-columns: 1fr; }
     .filters { flex-direction: column; }
     .filter-actions { margin-left: 0; justify-content: center; }
     th, td { padding: 12px 8px; font-size: 14px; }
-    .table-container { overflow-x: auto; }
-    table { min-width: 600px; }
-    .upload-area { padding: 40px 10px; }
-    .login-box { padding: 30px 20px; margin: 20px 10px; }
 }
-
-/* Mobile */
-@media (max-width: 480px) {
-    .container { padding: 5px; }
-    header { padding: 15px 0; }
-    .logo { height: 30px; }
-    .summary-cards .card { padding: 20px 15px; }
-    .card .value { font-size: 24px; }
-    th, td { padding: 10px 6px; font-size: 12px; }
-    table { min-width: 500px; }
-    .upload-area { padding: 30px 5px; }
-    .login-box { padding: 25px 15px; margin: 10px 5px; }
-    .btn { padding: 10px 15px; font-size: 14px; }
+.upload-area.highlight {
+    border-color: #2d4a7c;
+    background: #f0f9ff;
 }
