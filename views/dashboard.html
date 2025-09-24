@@ -11,18 +11,20 @@
 <body>
     <div class="container">
         <header>
-            <img src="/images/logo.png" alt="Logo Gama Seguridad" class="logo">
             <h1>Gestión de Cobranza - Gama Seguridad</h1>
             <button class="btn" id="logout-btn">Cerrar Sesión</button>
         </header>
 
-        <div class="upload-area" id="drop-area">
-            <h3>📁 Arrastra tu archivo Excel (.xlsx) aquí o haz clic</h3>
-            <p>Formato: 8 columnas → N° Factura, Razón Social, Monto, Fecha Factura, Fecha Vencimiento, Estado, Fecha Pago (opcional), Notas (opcional)</p>
+        <!-- Área de carga optimizada -->
+        <div class="upload-section">
+            <div class="upload-area" id="drop-area">
+                <h3>📁 Arrastra tu archivo Excel (.xlsx) aquí o haz clic</h3>
+                <p>Formato: Fecha, N° Factura, Razón Social, Monto</p>
+            </div>
+            <input type="file" id="file-input" accept=".xlsx" style="display: none;">
         </div>
-        <input type="file" id="file-input" accept=".xlsx" style="display: none;">
 
-        <!-- Filtros -->
+        <!-- Filtros y acciones -->
         <div class="filters">
             <div class="filter-group">
                 <label for="estado-filter">Filtrar por Estado:</label>
@@ -43,6 +45,7 @@
             </div>
         </div>
 
+        <!-- Resumen -->
         <div class="summary-cards">
             <div class="card pagado">
                 <h3>TOTAL PAGADO</h3>
@@ -62,6 +65,7 @@
             </div>
         </div>
 
+        <!-- Tabla principal -->
         <div class="table-container">
             <table>
                 <thead>
@@ -69,7 +73,6 @@
                         <th>N° Factura</th>
                         <th>Razón Social</th>
                         <th>Fecha Factura</th>
-                        <th>Fecha Vencimiento</th>
                         <th>Monto</th>
                         <th>Estado</th>
                         <th>Prioridad</th>
@@ -80,9 +83,25 @@
                     </tr>
                 </thead>
                 <tbody id="table-body">
-                    <!-- Datos se llenarán aquí -->
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Modal para notas -->
+    <div id="notes-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Notas - <span id="modal-cliente"></span></h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <textarea id="notes-text" placeholder="Escribe tus notas aquí..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-notes">Cancelar</button>
+                <button class="btn btn-primary" id="save-notes">Guardar</button>
+            </div>
         </div>
     </div>
 

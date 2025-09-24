@@ -16,7 +16,7 @@
             align-items: center;
             min-height: 100vh;
         }
-        .container {
+        .login-box {
             background: rgba(255,255,255,0.95);
             padding: 40px;
             border-radius: 16px;
@@ -51,10 +51,10 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="login-box">
         <h1>🔐 Acceso a Gama Seguridad</h1>
-        <input type="text" id="username" placeholder="Usuario" value="ecarrasco">
-        <input type="password" id="password" placeholder="Contraseña" value="ecarrasco2309">
+        <input type="text" id="username" placeholder="Usuario">
+        <input type="password" id="password" placeholder="Contraseña">
         <button class="btn" onclick="login()">Iniciar Sesión</button>
         <div id="login-error" class="error">❌ Usuario o contraseña incorrectos</div>
     </div>
