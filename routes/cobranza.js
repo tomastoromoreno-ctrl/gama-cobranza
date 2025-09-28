@@ -1,3 +1,4 @@
+// routes/cobranza.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -77,16 +78,19 @@ function parseDate(dateStr) {
 function extractAmount(amountStr) {
     if (!amountStr) return 0;
     
+    // Convertir a string si no lo es
+    let str = amountStr.toString();
+    
     // Eliminar caracteres no numéricos excepto puntos y comas
-    let cleanStr = amountStr.toString().replace(/[^\d\.,]/g, '');
+    str = str.replace(/[^\d\.,]/g, '');
     
     // Reemplazar comas por puntos si es necesario
-    if (cleanStr.includes(',')) {
-        cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
+    if (str.includes(',')) {
+        str = str.replace(/\./g, '').replace(',', '.');
     }
     
     // Convertir a número y redondear
-    const amount = Math.round(parseFloat(cleanStr) || 0);
+    const amount = Math.round(parseFloat(str) || 0);
     return amount;
 }
 
@@ -101,8 +105,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
 
-        // Procesar las filas de datos (empezando desde la fila 0, sin encabezados)
-        const facturas = [];
+        // Procesar las filas de datos
+        const facturasNuevas = [];
         const hoy = new Date();
         hoy.setHours(0,0,0,0);
 
@@ -168,10 +172,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 }
             }
 
-            facturas.push({
+            facturasNuevas.push({
                 numeroFactura,
                 razonSocial,
                 fechaFactura,
+                fechaVencimiento,
                 monto,
                 estado,
                 notas: '',
@@ -181,7 +186,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             });
         }
 
-        if (facturas.length === 0) {
+        if (facturasNuevas.length === 0) {
             return res.status(400).json({ error: 'No se pudieron procesar facturas válidas del archivo' });
         }
 
@@ -192,7 +197,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             errores: 0
         };
 
-        for (const factura of facturas) {
+        for (const factura of facturasNuevas) {
             try {
                 // Buscar factura existente (solo facturas que no han sido eliminadas manualmente)
                 const facturaExistente = await Factura.findOne({
@@ -205,6 +210,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                     await Factura.findByIdAndUpdate(facturaExistente._id, {
                         razonSocial: factura.razonSocial,
                         fechaFactura: factura.fechaFactura,
+                        fechaVencimiento: factura.fechaVencimiento,
                         monto: factura.monto,
                         estado: factura.estado,
                         prioridad: factura.prioridad,
@@ -226,7 +232,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         res.json({ 
             message: `✅ Archivo cargado correctamente. ${resultados.actualizadas} actualizadas, ${resultados.creadas} creadas.`,
             estadisticas: {
-                totalProcesadas: facturas.length,
+                totalProcesadas: facturasNuevas.length,
                 actualizadas: resultados.actualizadas,
                 creadas: resultados.creadas,
                 errores: resultados.errores
@@ -247,7 +253,7 @@ router.get('/', async (req, res) => {
     try {
         const facturas = await Factura.find({
             deletedAt: { $exists: false } // Solo facturas no eliminadas
-        }).sort({ fechaFactura: -1 }); // Ordenar por fecha de factura descendente
+        }).sort({ fechaVencimiento: 1 }); // Ordenar por fecha de vencimiento
         res.json(facturas);
     } catch (err) {
         console.error('Error al obtener facturas:', err);
@@ -314,18 +320,23 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// Eliminar factura (soft delete) - Solo admin
+// Eliminar factura (soft delete) - Solo para admin@admin.com
 router.delete('/:id', async (req, res) => {
     try {
-        // Verificar si el usuario es admin
-        if (req.user?.email !== 'admin@admin.com') {
-            return res.status(403).json({ error: 'Solo el administrador puede eliminar facturas' });
+        // Verificar si el usuario está autenticado
+        if (!req.user) {
+            return res.status(401).json({ error: 'No autorizado. Debes iniciar sesión.' });
+        }
+
+        // Verificar si el usuario es el administrador
+        if (req.user.email !== 'admin@admin.com') {
+            return res.status(403).json({ error: 'Acceso denegado. Solo el administrador puede eliminar facturas.' });
         }
 
         // Marcar como eliminada en lugar de borrarla
         const factura = await Factura.findByIdAndUpdate(req.params.id, {
             deletedAt: new Date(),
-            deletedBy: req.user?.id || null
+            deletedBy: req.user._id || null
         });
         
         if (!factura) return res.status(404).json({ error: 'Factura no encontrada' });
@@ -344,20 +355,21 @@ router.get('/download', async (req, res) => {
         });
         
         const data = facturas.map(f => [
-            f.fechaFactura ? f.fechaFactura.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+            f.fechaFactura ? f.fechaFactura.toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' }) : '',
             f.numeroFactura,
             f.razonSocial,
             f.monto,
+            f.fechaVencimiento ? f.fechaVencimiento.toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' }) : '',
             f.estado,
-            f.fechaPago ? f.fechaPago.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+            f.fechaPago ? f.fechaPago.toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' }) : '',
             f.notas,
             f.prioridad,
-            f.proximaLlamada ? f.proximaLlamada.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+            f.proximaLlamada ? f.proximaLlamada.toLocaleDateString('en-US', { year: '2-digit', month: 'numeric', day: 'numeric' }) : ''
         ]);
 
         // Crear hoja con encabezados
         const ws = xlsx.utils.aoa_to_sheet([
-            ['Fecha de factura', 'Numero de Factura', 'Razón social', 'Monto', 'Estado', 'Fecha de Pago', 'Notas', 'Prioridad', 'Próxima Llamada'],
+            ['Fecha de factura', 'Numero de Factura', 'Razón social', 'Monto', 'Fecha de vencimiento', 'Estado', 'Fecha de Pago', 'Notas', 'Prioridad', 'Próxima Llamada'],
             ...data
         ]);
 

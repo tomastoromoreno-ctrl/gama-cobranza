@@ -1,6 +1,7 @@
+// public/js/app.js
 document.addEventListener('DOMContentLoaded', () => {
     let allInvoices = [];
-    let currentFacturaId = null;
+    let currentUser = null; // Variable para almacenar la info del usuario
 
     const dropArea = document.getElementById('drop-area');
     const fileInput = document.getElementById('file-input');
@@ -10,17 +11,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportPdfBtn = document.getElementById('export-pdf');
     const downloadBtn = document.getElementById('download-btn');
 
-    // Modal de notas
-    const notesModal = document.getElementById('notes-modal');
-    const notesText = document.getElementById('notes-text');
-    const modalCliente = document.getElementById('modal-cliente');
-    const closeBtn = document.querySelector('.close');
-    const cancelNotesBtn = document.getElementById('cancel-notes');
-    const saveNotesBtn = document.getElementById('save-notes');
+    // Obtener información del usuario actual
+    fetch('/api/auth/current')
+        .then(response => response.json())
+        .then(data => {
+            currentUser = data.user;
+            console.log('Usuario actual:', currentUser);
+            // No necesitamos hacer nada más aquí, solo almacenar la info
+        })
+        .catch(error => {
+            console.error('Error al obtener información del usuario:', error);
+            // Si hay error, asumimos que no está logueado y se redirigirá al login
+        });
 
     // Logout
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
+            // Limpiar token si se usa
+            localStorage.removeItem('token'); // Ajusta según tu implementación
             window.location.href = '/';
         });
     }
@@ -126,9 +134,6 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         }
 
-        // Ordenar por fecha de factura (más reciente primero)
-        filteredData.sort((a, b) => new Date(b.fechaFactura) - new Date(a.fechaFactura));
-
         tableBody.innerHTML = '';
         filteredData.forEach(factura => {
             const tr = document.createElement('tr');
@@ -137,17 +142,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const formatDate = (date) => {
                 if (!date) return '';
                 const d = new Date(date);
-                return d.toLocaleDateString('es-ES', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric' 
-                });
+                return d.toISOString().split('T')[0];
             };
 
             // Formatear monto con separador de miles
             const formatNumber = (num) => {
                 return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
             };
+
+            // Determinar si mostrar botón de eliminar
+            const isAdmin = currentUser && currentUser.email === 'admin@admin.com';
+            const deleteButtonHtml = isAdmin ? 
+                `<button class="btn btn-danger" onclick="deleteRow('${factura._id}')">🗑️ Eliminar</button>` :
+                `<span style="color: #94a3b8;">Sin permisos</span>`;
 
             tr.innerHTML = `
                 <td>${factura.numeroFactura}</td>
@@ -168,15 +175,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option value="Baja" ${factura.prioridad === 'Baja' ? 'selected' : ''}>Baja</option>
                     </select>
                 </td>
-                <td>${formatDate(factura.proximaLlamada)}</td>
-                <td>${formatDate(factura.fechaPago)}</td>
                 <td>
-                    <button class="btn btn-notes" data-id="${factura._id}" data-cliente="${factura.razonSocial}" data-notas="${factura.notas || ''}">
-                        📝 Notas
-                    </button>
+                    <input type="date" class="editable-field" data-id="${factura._id}" data-field="proximaLlamada" value="${formatDate(factura.proximaLlamada)}">
                 </td>
                 <td>
-                    <button class="btn btn-danger" onclick="deleteRow('${factura._id}')">🗑️ Eliminar</button>
+                    <input type="date" class="editable-field" data-id="${factura._id}" data-field="fechaPago" value="${formatDate(factura.fechaPago)}">
+                </td>
+                <td>
+                    <input type="text" class="editable-field" data-id="${factura._id}" data-field="notas" value="${factura.notas || ''}" placeholder="Notas...">
+                </td>
+                <td>
+                    ${deleteButtonHtml}
                 </td>
             `;
             tableBody.appendChild(tr);
@@ -185,16 +194,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Agregar eventos de cambio
         document.querySelectorAll('.editable-field').forEach(field => {
             field.addEventListener('change', handleFieldChange);
-        });
-        
-        // Agregar eventos para notas
-        document.querySelectorAll('.btn-notes').forEach(btn => {
-            btn.addEventListener('click', function() {
-                currentFacturaId = this.dataset.id;
-                modalCliente.textContent = this.dataset.cliente;
-                notesText.value = this.dataset.notas || '';
-                notesModal.style.display = 'block';
-            });
         });
     }
 
@@ -283,17 +282,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const tableData = allInvoices.map(f => [
             f.numeroFactura,
             f.razonSocial,
-            f.fechaFactura ? new Date(f.fechaFactura).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+            f.fechaFactura ? new Date(f.fechaFactura).toLocaleDateString('es-ES') : '',
+            f.fechaVencimiento ? new Date(f.fechaVencimiento).toLocaleDateString('es-ES') : '',
             f.monto.toLocaleString('es-ES'),
             f.estado,
             f.prioridad,
-            f.proximaLlamada ? new Date(f.proximaLlamada).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
-            f.fechaPago ? new Date(f.fechaPago).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+            f.proximaLlamada ? new Date(f.proximaLlamada).toLocaleDateString('es-ES') : '',
+            f.fechaPago ? new Date(f.fechaPago).toLocaleDateString('es-ES') : '',
             f.notas || ''
         ]);
 
         doc.autoTable({
-            head: [['N° Factura', 'Razón Social', 'Fecha Factura', 'Monto', 'Estado', 'Prioridad', 'Próxima Llamada', 'Fecha Pago', 'Notas']],
+            head: [['N° Factura', 'Razón Social', 'Fecha Factura', 'Fecha Vencimiento', 'Monto', 'Estado', 'Prioridad', 'Próxima Llamada', 'Fecha Pago', 'Notas']],
             body: tableData,
             startY: 40,
             theme: 'grid',
@@ -311,65 +311,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Modal de notas
-    if (closeBtn) {
-        closeBtn.onclick = () => {
-            notesModal.style.display = 'none';
-        };
-    }
-
-    if (cancelNotesBtn) {
-        cancelNotesBtn.onclick = () => {
-            notesModal.style.display = 'none';
-        };
-    }
-
-    if (saveNotesBtn) {
-        saveNotesBtn.onclick = () => {
-            const notas = notesText.value;
-            fetch(`/api/cobranza/${currentFacturaId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ notas })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Actualizar localmente
-                const index = allInvoices.findIndex(f => f._id === currentFacturaId);
-                if (index !== -1) {
-                    allInvoices[index].notas = notas;
-                }
-                notesModal.style.display = 'none';
-                alert('✅ Notas guardadas');
-            })
-            .catch(error => {
-                alert('❌ Error al guardar notas: ' + error.message);
-            });
-        };
-    }
-
-    window.onclick = (event) => {
-        if (event.target === notesModal) {
-            notesModal.style.display = 'none';
-        }
-    };
-
     // Inicializar
     loadInvoices();
 });
 
-// Delete invoice
+// Delete invoice - Solo para admin@admin.com
 function deleteRow(id) {
-    if (confirm('¿Eliminar esta factura?')) {
+    if (confirm('¿Eliminar esta factura? Solo el administrador puede hacerlo.')) {
         fetch(`/api/cobranza/${id}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.error || 'Error desconocido'); });
+            }
+            return response.json();
+        })
         .then(data => {
             alert(data.message);
             location.reload();
