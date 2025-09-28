@@ -11,20 +11,18 @@
 <body>
     <div class="container">
         <header>
+            <img src="/images/logo.png" alt="Logo Gama Seguridad" class="logo">
             <h1>Gestión de Cobranza - Gama Seguridad</h1>
             <button class="btn" id="logout-btn">Cerrar Sesión</button>
         </header>
 
-        <!-- Área de carga optimizada -->
-        <div class="upload-section">
-            <div class="upload-area" id="drop-area">
-                <h3>📁 Arrastra tu archivo Excel (.xlsx) aquí o haz clic</h3>
-                <p>Formato: Fecha, N° Factura, Razón Social, Monto</p>
-            </div>
-            <input type="file" id="file-input" accept=".xlsx" style="display: none;">
+        <div class="upload-area" id="drop-area">
+            <h3>📁 Arrastra tu archivo Excel (.xlsx) aquí o haz clic</h3>
+            <p>Formato: Fecha Factura, N° Factura, Razón Social, Monto</p>
         </div>
+        <input type="file" id="file-input" accept=".xlsx" style="display: none;">
 
-        <!-- Filtros y acciones -->
+        <!-- Filtros -->
         <div class="filters">
             <div class="filter-group">
                 <label for="estado-filter">Filtrar por Estado:</label>
@@ -45,7 +43,6 @@
             </div>
         </div>
 
-        <!-- Resumen -->
         <div class="summary-cards">
             <div class="card pagado">
                 <h3>TOTAL PAGADO</h3>
@@ -65,7 +62,6 @@
             </div>
         </div>
 
-        <!-- Tabla principal -->
         <div class="table-container">
             <table>
                 <thead>
@@ -83,6 +79,7 @@
                     </tr>
                 </thead>
                 <tbody id="table-body">
+                    <!-- Datos se llenarán aquí -->
                 </tbody>
             </table>
         </div>
@@ -99,8 +96,8 @@
                 <textarea id="notes-text" placeholder="Escribe tus notas aquí..."></textarea>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancel-notes">Cancelar</button>
-                <button class="btn btn-primary" id="save-notes">Guardar</button>
+                <button class="btn" id="cancel-notes">Cancelar</button>
+                <button class="btn" id="save-notes">Guardar</button>
             </div>
         </div>
     </div>

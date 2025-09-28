@@ -1,9 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     let allInvoices = [];
-    let currentUser = null;
     let currentFacturaId = null;
 
-    // Obtener elementos
     const dropArea = document.getElementById('drop-area');
     const fileInput = document.getElementById('file-input');
     const logoutBtn = document.getElementById('logout-btn');
@@ -11,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clienteSearch = document.getElementById('cliente-search');
     const exportPdfBtn = document.getElementById('export-pdf');
     const downloadBtn = document.getElementById('download-btn');
-    
+
     // Modal de notas
     const notesModal = document.getElementById('notes-modal');
     const notesText = document.getElementById('notes-text');
@@ -19,16 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.querySelector('.close');
     const cancelNotesBtn = document.getElementById('cancel-notes');
     const saveNotesBtn = document.getElementById('save-notes');
-
-    // Cargar usuario actual
-    fetch('/api/auth/current')
-        .then(response => response.json())
-        .then(data => {
-            currentUser = data.user;
-        })
-        .catch(() => {
-            window.location.href = '/';
-        });
 
     // Logout
     if (logoutBtn) {
@@ -121,13 +109,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const tableBody = document.getElementById('table-body');
         if (!tableBody) return;
 
+        // Aplicar filtros
         let filteredData = data;
 
+        // Filtro por estado
         const estadoValue = estadoFilter.value;
         if (estadoValue) {
             filteredData = filteredData.filter(f => f.estado === estadoValue);
         }
 
+        // Filtro por cliente
         const clienteValue = clienteSearch.value.toLowerCase();
         if (clienteValue) {
             filteredData = filteredData.filter(f => 
@@ -135,22 +126,14 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         }
 
-        // Ordenar: fechas válidas primero, luego por razón social
-        filteredData.sort((a, b) => {
-            const fechaA = a.fechaFactura ? new Date(a.fechaFactura) : null;
-            const fechaB = b.fechaFactura ? new Date(b.fechaFactura) : null;
-            
-            if (fechaA && !fechaB) return -1;
-            if (!fechaA && fechaB) return 1;
-            if (fechaA && fechaB) return fechaA - fechaB;
-            
-            return a.razonSocial.localeCompare(b.razonSocial);
-        });
+        // Ordenar por fecha de factura (más reciente primero)
+        filteredData.sort((a, b) => new Date(b.fechaFactura) - new Date(a.fechaFactura));
 
         tableBody.innerHTML = '';
         filteredData.forEach(factura => {
             const tr = document.createElement('tr');
             
+            // Formatear fechas
             const formatDate = (date) => {
                 if (!date) return '';
                 const d = new Date(date);
@@ -161,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
 
+            // Formatear monto con separador de miles
             const formatNumber = (num) => {
                 return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
             };
@@ -192,22 +176,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                 </td>
                 <td>
-                    ${currentUser?.email === 'admin@admin.com' ? 
-                        `<button class="btn btn-danger" onclick="deleteRow('${factura._id}')">🗑️ Eliminar</button>` : 
-                        `<span style="color: #94a3b8;">Sin permisos</span>`
-                    }
+                    <button class="btn btn-danger" onclick="deleteRow('${factura._id}')">🗑️ Eliminar</button>
                 </td>
             `;
             tableBody.appendChild(tr);
         });
 
-        // Agregar eventos
+        // Agregar eventos de cambio
         document.querySelectorAll('.editable-field').forEach(field => {
             field.addEventListener('change', handleFieldChange);
         });
         
+        // Agregar eventos para notas
         document.querySelectorAll('.btn-notes').forEach(btn => {
-            btn.addEventListener('click', handleNotesClick);
+            btn.addEventListener('click', function() {
+                currentFacturaId = this.dataset.id;
+                modalCliente.textContent = this.dataset.cliente;
+                notesText.value = this.dataset.notas || '';
+                notesModal.style.display = 'block';
+            });
         });
     }
 
@@ -218,17 +205,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const fieldName = field.dataset.field;
         let value = field.value;
 
+        // Convertir fechas a objetos Date si es necesario
         if (fieldName === 'fechaPago' || fieldName === 'proximaLlamada') {
             value = value ? new Date(value) : null;
         }
 
+        // Actualizar en el servidor
         fetch(`/api/cobranza/${facturaId}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ [fieldName]: value })
         })
         .then(response => response.json())
         .then(data => {
+            // Actualizar localmente
             const index = allInvoices.findIndex(f => f._id === facturaId);
             if (index !== -1) {
                 allInvoices[index][fieldName] = value;
@@ -240,46 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('❌ Error al guardar cambios: ' + error.message);
         });
     }
-
-    // Handle notes click
-    function handleNotesClick(e) {
-        const btn = e.target;
-        currentFacturaId = btn.dataset.id;
-        modalCliente.textContent = btn.dataset.cliente;
-        notesText.value = btn.dataset.notas;
-        notesModal.style.display = 'block';
-    }
-
-    // Modal events
-    closeBtn.onclick = () => { notesModal.style.display = 'none'; };
-    cancelNotesBtn.onclick = () => { notesModal.style.display = 'none'; };
-    
-    saveNotesBtn.onclick = () => {
-        const notas = notesText.value;
-        fetch(`/api/cobranza/${currentFacturaId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notas })
-        })
-        .then(response => response.json())
-        .then(data => {
-            const index = allInvoices.findIndex(f => f._id === currentFacturaId);
-            if (index !== -1) {
-                allInvoices[index].notas = notas;
-            }
-            notesModal.style.display = 'none';
-            alert('✅ Notas guardadas');
-        })
-        .catch(error => {
-            alert('❌ Error al guardar notas: ' + error.message);
-        });
-    };
-
-    window.onclick = (event) => {
-        if (event.target === notesModal) {
-            notesModal.style.display = 'none';
-        }
-    };
 
     // Update summary
     function updateSummary(data) {
@@ -301,11 +253,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners for filters
     if (estadoFilter) {
-        estadoFilter.addEventListener('change', () => renderTable(allInvoices));
+        estadoFilter.addEventListener('change', () => {
+            renderTable(allInvoices);
+        });
     }
 
     if (clienteSearch) {
-        clienteSearch.addEventListener('input', () => renderTable(allInvoices));
+        clienteSearch.addEventListener('input', () => {
+            renderTable(allInvoices);
+        });
     }
 
     // Export to PDF
@@ -355,16 +311,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Modal de notas
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            notesModal.style.display = 'none';
+        };
+    }
+
+    if (cancelNotesBtn) {
+        cancelNotesBtn.onclick = () => {
+            notesModal.style.display = 'none';
+        };
+    }
+
+    if (saveNotesBtn) {
+        saveNotesBtn.onclick = () => {
+            const notas = notesText.value;
+            fetch(`/api/cobranza/${currentFacturaId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notas })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Actualizar localmente
+                const index = allInvoices.findIndex(f => f._id === currentFacturaId);
+                if (index !== -1) {
+                    allInvoices[index].notas = notas;
+                }
+                notesModal.style.display = 'none';
+                alert('✅ Notas guardadas');
+            })
+            .catch(error => {
+                alert('❌ Error al guardar notas: ' + error.message);
+            });
+        };
+    }
+
+    window.onclick = (event) => {
+        if (event.target === notesModal) {
+            notesModal.style.display = 'none';
+        }
+    };
+
     // Inicializar
     loadInvoices();
 });
 
 // Delete invoice
 function deleteRow(id) {
-    if (confirm('¿Eliminar esta factura? Solo el administrador puede hacer esto.')) {
+    if (confirm('¿Eliminar esta factura?')) {
         fetch(`/api/cobranza/${id}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json'
+            }
         })
         .then(response => response.json())
         .then(data => {

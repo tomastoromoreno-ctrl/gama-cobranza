@@ -12,35 +12,43 @@ function parseDate(dateStr) {
     try {
         if (!dateStr || dateStr === '') return null;
         
+        // Si ya es objeto Date
         if (dateStr instanceof Date) {
             const d = new Date(dateStr);
             d.setHours(0,0,0,0);
             return d;
         }
 
+        // Si es número (formato Excel)
         if (typeof dateStr === 'number') {
             const date = new Date((dateStr - 25569) * 86400 * 1000);
             date.setHours(0,0,0,0);
             return isNaN(date.getTime()) ? null : date;
         }
 
+        // Si es string en formato DD/MM/YY o DD-MM-YY
         if (typeof dateStr === 'string') {
-            let cleanStr = dateStr.replace(/[^\d\/\-]/g, '');
+            // Limpiar caracteres no numéricos excepto / y -
+            dateStr = dateStr.replace(/[^\d\/\-]/g, '');
             
-            if (cleanStr.includes('/') || cleanStr.includes('-')) {
-                const parts = cleanStr.split(/[/\-]/);
-                if (parts.length >= 2) {
+            // Formato DD/MM/YY o DD-MM-YY
+            if (dateStr.includes('/') || dateStr.includes('-')) {
+                const parts = dateStr.split(/[/\-]/);
+                if (parts.length === 3) {
                     let day, month, year;
                     
+                    // Detectar formato DD/MM/YY
                     if (parts[0].length <= 2 && parts[1].length <= 2) {
                         day = parseInt(parts[0], 10);
-                        month = parseInt(parts[1], 10) - 1;
-                        year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
+                        month = parseInt(parts[1], 10) - 1; // Mes en JS es 0-11
+                        year = parseInt(parts[2], 10);
                         if (year < 100) year += 2000;
-                    } else {
+                    } 
+                    // Detectar formato MM/DD/YY
+                    else if (parts[1].length <= 2 && parts[0].length <= 2) {
                         month = parseInt(parts[0], 10) - 1;
                         day = parseInt(parts[1], 10);
-                        year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
+                        year = parseInt(parts[2], 10);
                         if (year < 100) year += 2000;
                     }
 
@@ -50,6 +58,7 @@ function parseDate(dateStr) {
                 }
             }
             
+            // Intentar parsear como ISO
             const isoDate = new Date(dateStr);
             if (!isNaN(isoDate.getTime())) {
                 isoDate.setHours(0,0,0,0);
@@ -68,16 +77,16 @@ function parseDate(dateStr) {
 function extractAmount(amountStr) {
     if (!amountStr) return 0;
     
-    let str = amountStr.toString();
-    str = str.replace(/[^\d\.,]/g, '');
+    // Eliminar caracteres no numéricos excepto puntos y comas
+    let cleanStr = amountStr.toString().replace(/[^\d\.,]/g, '');
     
-    if (str.includes(',') && str.includes('.')) {
-        str = str.replace(/\./g, '').replace(',', '.');
-    } else if (str.includes(',')) {
-        str = str.replace(',', '.');
+    // Reemplazar comas por puntos si es necesario
+    if (cleanStr.includes(',')) {
+        cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
     }
     
-    const amount = Math.round(parseFloat(str) || 0);
+    // Convertir a número y redondear
+    const amount = Math.round(parseFloat(cleanStr) || 0);
     return amount;
 }
 
@@ -92,49 +101,74 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
 
-        const facturasNuevas = [];
+        // Procesar las filas de datos (empezando desde la fila 0, sin encabezados)
+        const facturas = [];
         const hoy = new Date();
         hoy.setHours(0,0,0,0);
 
         for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i];
-            if (!row || row.length === 0) continue;
-            
-            if (typeof row[0] === 'string' && row[0].includes('SEPT')) continue;
-            if (row[0] === 'Fecha') continue;
+            if (!row || row.length === 0) continue; // Saltar filas vacías
 
+            // Validar que tenga al menos 4 columnas
+            if (row.length < 4) {
+                console.warn(`Fila ${i+1}: Datos incompletos, saltando...`);
+                continue;
+            }
+
+            // Extraer datos por posición (no por nombre de columna)
+            // Columna 0: Fecha Factura
+            // Columna 1: Número de Factura
+            // Columna 2: Razón Social
+            // Columna 3: Monto
             const fechaFacturaRaw = row[0];
             const numeroFactura = row[1]?.toString().trim();
             const razonSocial = row[2]?.toString().trim();
             const montoRaw = row[3];
 
-            if (!numeroFactura || !razonSocial || !montoRaw) {
+            // Validar campos obligatorios
+            if (!numeroFactura || !razonSocial) {
                 console.warn(`Fila ${i+1}: Datos incompletos, saltando...`);
                 continue;
             }
 
+            // Parsear fechas
             const fechaFactura = parseDate(fechaFacturaRaw);
+            let fechaVencimiento = null;
+
+            // Calcular fecha de vencimiento (30 días después de la factura)
+            if (fechaFactura) {
+                fechaVencimiento = new Date(fechaFactura.getTime() + 30 * 24 * 60 * 60 * 1000);
+            } else {
+                // Si no hay fecha de factura, usar hoy + 30 días
+                fechaFactura = new Date();
+                fechaVencimiento = new Date(hoy.getTime() + 30 * 24 * 60 * 60 * 1000);
+            }
+
+            // Extraer monto
             const monto = extractAmount(montoRaw);
 
+            // Determinar estado
             let estado = 'Pendiente';
-            if (fechaFactura < hoy) {
+            if (fechaVencimiento < hoy) {
                 estado = 'Vencido';
             }
 
+            // Prioridad y próxima llamada
             let prioridad = 'Baja';
             let proximaLlamada = null;
             if (estado === 'Vencido') {
                 prioridad = 'Alta';
-                proximaLlamada = new Date(hoy.getTime() + 86400000);
+                proximaLlamada = new Date(hoy.getTime() + 86400000); // Mañana
             } else if (estado === 'Pendiente') {
-                const diasHastaVencimiento = Math.ceil((new Date(fechaFactura.getTime() + 30 * 24 * 60 * 60 * 1000) - hoy) / (1000 * 60 * 60 * 24));
+                const diasHastaVencimiento = Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24));
                 if (diasHastaVencimiento <= 3) {
                     prioridad = 'Media';
-                    proximaLlamada = new Date(hoy.getTime() + 86400000);
+                    proximaLlamada = new Date(hoy.getTime() + 86400000); // Mañana
                 }
             }
 
-            facturasNuevas.push({
+            facturas.push({
                 numeroFactura,
                 razonSocial,
                 fechaFactura,
@@ -147,24 +181,27 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             });
         }
 
-        if (facturasNuevas.length === 0) {
+        if (facturas.length === 0) {
             return res.status(400).json({ error: 'No se pudieron procesar facturas válidas del archivo' });
         }
 
+        // Procesar cada factura: actualizar si existe, crear si no
         const resultados = {
             actualizadas: 0,
             creadas: 0,
             errores: 0
         };
 
-        for (const factura of facturasNuevas) {
+        for (const factura of facturas) {
             try {
+                // Buscar factura existente (solo facturas que no han sido eliminadas manualmente)
                 const facturaExistente = await Factura.findOne({
                     numeroFactura: factura.numeroFactura,
-                    deletedAt: { $exists: false }
+                    deletedAt: { $exists: false } // Solo facturas no eliminadas
                 });
 
                 if (facturaExistente) {
+                    // Actualizar factura existente
                     await Factura.findByIdAndUpdate(facturaExistente._id, {
                         razonSocial: factura.razonSocial,
                         fechaFactura: factura.fechaFactura,
@@ -176,6 +213,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                     });
                     resultados.actualizadas++;
                 } else {
+                    // Crear nueva factura
                     await Factura.create(factura);
                     resultados.creadas++;
                 }
@@ -186,9 +224,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         }
 
         res.json({ 
-            message: `✅ Archivo procesado correctamente`,
+            message: `✅ Archivo cargado correctamente. ${resultados.actualizadas} actualizadas, ${resultados.creadas} creadas.`,
             estadisticas: {
-                totalProcesadas: facturasNuevas.length,
+                totalProcesadas: facturas.length,
                 actualizadas: resultados.actualizadas,
                 creadas: resultados.creadas,
                 errores: resultados.errores
@@ -204,12 +242,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// Obtener todas las facturas
+// Obtener todas las facturas (solo las no eliminadas)
 router.get('/', async (req, res) => {
     try {
         const facturas = await Factura.find({
-            deletedAt: { $exists: false }
-        }).sort({ razonSocial: 1, monto: -1 });
+            deletedAt: { $exists: false } // Solo facturas no eliminadas
+        }).sort({ fechaFactura: -1 }); // Ordenar por fecha de factura descendente
         res.json(facturas);
     } catch (err) {
         console.error('Error al obtener facturas:', err);
@@ -217,15 +255,17 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Actualizar factura
+// Actualizar factura (soft update)
 router.put('/:id', async (req, res) => {
     try {
         const { estado, prioridad, proximaLlamada, fechaPago, notas } = req.body;
 
+        // Validar que al menos uno de los campos esté presente
         if (!estado && !prioridad && !proximaLlamada && !fechaPago && !notas) {
             return res.status(400).json({ error: 'Debe proporcionar al menos un campo para actualizar' });
         }
 
+        // Validar valores
         if (estado && !['Pendiente', 'Pagado', 'Vencido'].includes(estado)) {
             return res.status(400).json({ error: 'Estado inválido. Valores permitidos: Pendiente, Pagado, Vencido' });
         }
@@ -234,6 +274,7 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ error: 'Prioridad inválida. Valores permitidos: Alta, Media, Baja' });
         }
 
+        // Validar fechas
         if (proximaLlamada) {
             const date = new Date(proximaLlamada);
             if (isNaN(date.getTime())) {
@@ -248,6 +289,7 @@ router.put('/:id', async (req, res) => {
             }
         }
 
+        // Actualizar factura
         const factura = await Factura.findByIdAndUpdate(
             req.params.id,
             {
@@ -272,7 +314,7 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// Eliminar factura (solo admin)
+// Eliminar factura (soft delete) - Solo admin
 router.delete('/:id', async (req, res) => {
     try {
         // Verificar si el usuario es admin
@@ -280,6 +322,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ error: 'Solo el administrador puede eliminar facturas' });
         }
 
+        // Marcar como eliminada en lugar de borrarla
         const factura = await Factura.findByIdAndUpdate(req.params.id, {
             deletedAt: new Date(),
             deletedBy: req.user?.id || null
@@ -297,7 +340,7 @@ router.delete('/:id', async (req, res) => {
 router.get('/download', async (req, res) => {
     try {
         const facturas = await Factura.find({
-            deletedAt: { $exists: false }
+            deletedAt: { $exists: false } // Solo facturas no eliminadas
         });
         
         const data = facturas.map(f => [
@@ -312,6 +355,7 @@ router.get('/download', async (req, res) => {
             f.proximaLlamada ? f.proximaLlamada.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
         ]);
 
+        // Crear hoja con encabezados
         const ws = xlsx.utils.aoa_to_sheet([
             ['Fecha de factura', 'Numero de Factura', 'Razón social', 'Monto', 'Estado', 'Fecha de Pago', 'Notas', 'Prioridad', 'Próxima Llamada'],
             ...data
@@ -319,6 +363,8 @@ router.get('/download', async (req, res) => {
 
         const wb = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(wb, ws, "Cobranza");
+        
+        // Generar buffer
         const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
         
         res.setHeader('Content-Disposition', 'attachment; filename="gama_seguridad_cobranza.xlsx"');

@@ -1,81 +1,30 @@
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 body { background: #f1f5f9; color: #334155; }
 .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-header { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    padding: 20px 0; 
-    border-bottom: 1px solid #e2e8f0; 
-    margin-bottom: 20px; 
-}
-header h1 { font-size: 24px; }
-.btn { 
-    background: #1a365d; 
-    color: white; 
-    padding: 10px 20px; 
-    border: none; 
-    border-radius: 6px; 
-    cursor: pointer; 
-    font-size: 14px; 
-    margin-left: 10px;
-}
-.btn:hover { background: #2d4a7c; }
-.btn-secondary { background: #64748b; }
-.btn-primary { background: #1a365d; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 30px; }
+.logo { height: 50px; }
 
-/* Upload Section - Optimizado */
-.upload-section {
-    margin: 20px 0;
-}
+/* Login */
+.login-box { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; color: #1e293b; margin: 50px auto; }
+.login-box input { width: 100%; padding: 14px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+.btn { background: #1a365d; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; width: 100%; margin-top: 10px; }
+.btn:hover { background: #2d4a7c; }
+.error { color: #e53e3e; font-weight: bold; margin-top: 15px; display: none; }
+
+/* Upload Area - Más compacta */
 .upload-area {
     border: 2px dashed #1a365d;
     padding: 30px 20px;
     text-align: center;
     border-radius: 12px;
     background: white;
+    margin: 20px 0;
     cursor: pointer;
     transition: all 0.3s;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
 }
-.upload-area:hover { 
-    border-color: #2d4a7c; 
-    background: #f8fafc; 
-}
-
-/* Filters */
-.filters {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    margin: 20px 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    align-items: end;
-}
-.filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-.filter-group label {
-    font-weight: 600;
-    color: #1e293b;
-}
-.filter-select, .filter-input {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 14px;
-}
-.filter-actions {
-    display: flex;
-    gap: 10px;
-    margin-left: auto;
-}
+.upload-area:hover { border-color: #2d4a7c; background: #f0f9ff; }
+.upload-area h3 { color: #1a365d; margin-bottom: 15px; }
 
 /* Summary Cards */
 .summary-cards {
@@ -96,6 +45,48 @@ header h1 { font-size: 24px; }
 .card.pagado .value { color: #38a169; }
 .card.pendiente .value { color: #dd6b20; }
 .card.vencido .value { color: #e53e3e; }
+
+/* Filters */
+.filters {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin: 20px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-group label {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.filter-select, .filter-input {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.filter-actions .btn {
+    padding: 10px 20px;
+    font-size: 14px;
+}
 
 /* Table */
 .table-container {
@@ -176,19 +167,18 @@ tr:hover { background: #f8fafc; }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .container { padding: 10px; }
-    header { flex-direction: column; gap: 15px; text-align: center; }
+    .summary-cards { grid-template-columns: 1fr; }
     .filters { flex-direction: column; }
     .filter-actions { margin-left: 0; justify-content: center; }
-    th, td { padding: 10px 8px; font-size: 12px; }
-    .table-container { overflow-x: auto; }
+    th, td { padding: 10px 8px; font-size: 14px; }
     table { min-width: 600px; }
+    .table-container { overflow-x: auto; }
     .upload-area { padding: 20px 10px; }
-    .summary-cards { grid-template-columns: 1fr; }
+    .login-box { padding: 30px 20px; margin: 20px 10px; }
 }
 
 @media (max-width: 480px) {
-    .container { padding: 5px; }
-    .btn { padding: 8px 15px; font-size: 12px; margin-left: 5px; }
+    .container { padding: 10px; }
+    .btn { padding: 10px 15px; font-size: 14px; }
     .modal-content { width: 95%; margin: 10% auto; }
 }
