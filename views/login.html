@@ -66,6 +66,9 @@
 
             if ((username === 'admin@admin.com' && password === '123456789') || 
                 (username === 'ecarrasco' && password === 'ecarrasco2309')) {
+                // Simular inicio de sesión
+                const token = 'fake-token'; // En producción, esto vendría del servidor
+                localStorage.setItem('token', token);
                 window.location.href = '/dashboard';
             } else {
                 document.getElementById('login-error').style.display = 'block';

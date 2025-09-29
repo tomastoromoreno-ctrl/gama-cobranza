@@ -12,17 +12,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadBtn = document.getElementById('download-btn');
 
     // Obtener información del usuario actual
-    fetch('/api/auth/current')
-        .then(response => response.json())
-        .then(data => {
-            currentUser = data.user;
-            console.log('Usuario actual:', currentUser);
-            // No necesitamos hacer nada más aquí, solo almacenar la info
-        })
-        .catch(error => {
-            console.error('Error al obtener información del usuario:', error);
-            // Si hay error, asumimos que no está logueado y se redirigirá al login
-        });
+    fetch('/api/auth/current', {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // Asume que el token se guarda en localStorage
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            if (response.status === 401) {
+                alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
+                window.location.href = '/'; // Redirigir al login
+                return Promise.reject('Unauthorized');
+            }
+            throw new Error('Error al obtener información del usuario');
+        }
+        return response.json();
+    })
+    .then(data => {
+        currentUser = data.user;
+        console.log('Usuario actual:', currentUser);
+        // No necesitamos hacer nada más aquí, solo almacenar la info
+    })
+    .catch(error => {
+        console.error('Error al obtener información del usuario:', error);
+        // Si hay error, asumimos que no está logueado y se redirigirá al login
+    });
 
     // Logout
     if (logoutBtn) {
