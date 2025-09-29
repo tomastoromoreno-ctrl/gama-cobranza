@@ -1,4 +1,5 @@
 // routes/cobranza.js
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -30,26 +31,25 @@ function parseDate(dateStr) {
         // Si es string en formato DD/MM/YY o DD-MM-YY
         if (typeof dateStr === 'string') {
             // Limpiar caracteres no numéricos excepto / y -
-            dateStr = dateStr.replace(/[^\d\/\-]/g, '');
+            let cleanStr = dateStr.replace(/[^\d\/\-]/g, '');
             
-            // Formato DD/MM/YY o DD-MM-YY
-            if (dateStr.includes('/') || dateStr.includes('-')) {
-                const parts = dateStr.split(/[/\-]/);
-                if (parts.length === 3) {
+            if (cleanStr.includes('/') || cleanStr.includes('-')) {
+                const parts = cleanStr.split(/[/\-]/);
+                if (parts.length >= 2) {
                     let day, month, year;
                     
-                    // Detectar formato DD/MM/YY
+                    // Formato DD/MM/YY
                     if (parts[0].length <= 2 && parts[1].length <= 2) {
                         day = parseInt(parts[0], 10);
-                        month = parseInt(parts[1], 10) - 1; // Mes en JS es 0-11
-                        year = parseInt(parts[2], 10);
+                        month = parseInt(parts[1], 10) - 1;
+                        year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
                         if (year < 100) year += 2000;
                     } 
-                    // Detectar formato MM/DD/YY
-                    else if (parts[1].length <= 2 && parts[0].length <= 2) {
+                    // Formato MM/DD/YY
+                    else {
                         month = parseInt(parts[0], 10) - 1;
                         day = parseInt(parts[1], 10);
-                        year = parseInt(parts[2], 10);
+                        year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
                         if (year < 100) year += 2000;
                     }
 
@@ -81,12 +81,17 @@ function extractAmount(amountStr) {
     // Convertir a string si no lo es
     let str = amountStr.toString();
     
-    // Eliminar caracteres no numéricos excepto puntos y comas
+    // Eliminar caracteres no numéricos excepto comas y puntos
     str = str.replace(/[^\d\.,]/g, '');
     
-    // Reemplazar comas por puntos si es necesario
-    if (str.includes(',')) {
+    // Si tiene comas y puntos, asumir formato chileno (puntos como separadores de miles, comas como decimales)
+    if (str.includes(',') && str.includes('.')) {
+        // Eliminar puntos (separadores de miles) y reemplazar coma por punto
         str = str.replace(/\./g, '').replace(',', '.');
+    } 
+    // Si solo tiene comas, reemplazar por puntos
+    else if (str.includes(',')) {
+        str = str.replace(',', '.');
     }
     
     // Convertir a número y redondear
@@ -113,15 +118,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i];
             if (!row || row.length === 0) continue; // Saltar filas vacías
+            
+            // Saltar filas que parecen encabezados o títulos
+            if (typeof row[0] === 'string' && row[0].includes('SEPT')) continue;
+            if (row[0] === 'Fecha') continue;
 
-            // Validar que tenga al menos 4 columnas
-            if (row.length < 4) {
-                console.warn(`Fila ${i+1}: Datos incompletos, saltando...`);
-                continue;
-            }
-
-            // Extraer datos por posición (no por nombre de columna)
-            // Columna 0: Fecha Factura
+            // Extraer datos según el formato del archivo Cobranza Sept25.xlsx
+            // Columna 0: Fecha
             // Columna 1: Número de Factura
             // Columna 2: Razón Social
             // Columna 3: Monto
@@ -131,7 +134,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             const montoRaw = row[3];
 
             // Validar campos obligatorios
-            if (!numeroFactura || !razonSocial) {
+            if (!numeroFactura || !razonSocial || !montoRaw) {
                 console.warn(`Fila ${i+1}: Datos incompletos, saltando...`);
                 continue;
             }
@@ -230,7 +233,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         }
 
         res.json({ 
-            message: `✅ Archivo cargado correctamente. ${resultados.actualizadas} actualizadas, ${resultados.creadas} creadas.`,
+            message: `✅ Archivo procesado correctamente`,
             estadisticas: {
                 totalProcesadas: facturasNuevas.length,
                 actualizadas: resultados.actualizadas,
@@ -253,7 +256,7 @@ router.get('/', async (req, res) => {
     try {
         const facturas = await Factura.find({
             deletedAt: { $exists: false } // Solo facturas no eliminadas
-        }).sort({ fechaVencimiento: 1 }); // Ordenar por fecha de vencimiento
+        }).sort({ fechaVencimiento: 1 });
         res.json(facturas);
     } catch (err) {
         console.error('Error al obtener facturas:', err);

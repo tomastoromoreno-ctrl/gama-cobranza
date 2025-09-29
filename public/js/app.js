@@ -1,7 +1,7 @@
 // public/js/app.js
 document.addEventListener('DOMContentLoaded', () => {
     let allInvoices = [];
-    let currentUser = null; // Variable para almacenar la info del usuario
+    let currentUser = null;
 
     const dropArea = document.getElementById('drop-area');
     const fileInput = document.getElementById('file-input');
@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Logout
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
-            // Limpiar token si se usa
             localStorage.removeItem('token'); // Ajusta según tu implementación
             window.location.href = '/';
         });
